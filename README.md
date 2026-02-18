@@ -1,36 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Smart Bookmark App
 
-## Getting Started
+A minimal real-time bookmark manager built with Next.js App Router and Supabase.
 
-First, run the development server:
+Users authenticate via Google OAuth, manage private bookmarks, and see real-time updates across multiple tabs without refreshing the page.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Live Demo:
+https://smart-bookmark-app-delta-beige.vercel.app/
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Next.js (App Router)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Supabase (Auth, Postgres, Realtime)
 
-## Learn More
+Tailwind CSS
 
-To learn more about Next.js, take a look at the following resources:
+Vercel (Deployment)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Google OAuth login (no email/password)
 
-## Deploy on Vercel
+Private bookmarks per user
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Row-Level Security (RLS) enforced at database level
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Real-time updates across multiple tabs
+
+Bookmark add & delete functionality
+
+Responsive UI with Tailwind CSS
+
+Architecture Overview
+Authentication
+
+Authentication is handled using Supabase Google OAuth.
+
+The app relies on:
+
+supabase.auth.onAuthStateChange() for session lifecycle
+
+Secure session management across tabs
+
+Clean logout handling
+
+Only authenticated users can access the dashboard.
+
+Data Privacy (Row-Level Security)
+
+Row-Level Security (RLS) is enabled on the bookmarks table.
+
+Policy:
+
+auth.uid() = user_id
+
+
+This ensures:
+
+Users can only read their own bookmarks
+
+Users can only insert bookmarks tied to their user_id
+
+Users can only delete their own data
+
+Data isolation is enforced at the database level, not just the frontend.
+
+Database Schema
+bookmarks (
+  id uuid primary key,
+  user_id uuid references auth.users,
+  title text,
+  url text,
+  created_at timestamp default now()
+)
+
+Real-Time Updates
+
+Realtime updates are implemented using Supabase Realtime.
+
+Replication enabled for the bookmarks table
+
+Subscribed to postgres_changes
+
+On change events, bookmarks are re-fetched to ensure deterministic UI state
+
+Cross-tab synchronization supported
+
+Challenges Faced
+1. OAuth + Realtime Race Condition
+
+After OAuth login, the realtime WebSocket subscription occasionally failed with CHANNEL_ERROR.
+
+Root Cause:
+
+The auth session was not fully hydrated before realtime attempted to subscribe.
+
+Solution:
+
+Re-structured authentication flow to rely on onAuthStateChange
+
+Ensured realtime subscription is created only after session is confirmed
+
+2. Cross-Tab Session Sync Issues
+
+Logout in one tab did not always reflect immediately in another.
+
+Solution:
+
+Centralized auth handling using onAuthStateChange
+
+Managed realtime channel lifecycle properly
+
+Cleared channels on logout to prevent duplicate subscriptions
+
+3. JWT Clock Skew Issue
+
+Encountered an issue where Supabase reported:
+
+Session was issued in the future
+
+
+Root Cause:
+
+Local system clock drift
+
+Solution:
+
+Resynchronized system clock
+
+Restarted dev server and cleared cache
+
+4. Tailwind v4 Configuration Differences
+
+Initial Tailwind configuration used v3 syntax while the project installed v4.
+
+Solution:
+
+Updated globals.css to use @import "tailwindcss"
+
+Adjusted PostCSS configuration accordingly
+
+Deployment
+
+The application is deployed on Vercel.
+
+Production configuration required:
+
+Updating Google OAuth Authorized Origins
+
+Updating Supabase Site URL
+
+Configuring environment variables in Vercel
+
+Environment Variables
+
+Create a .env.local file:
+
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
