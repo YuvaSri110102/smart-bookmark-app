@@ -24,10 +24,17 @@ export default function Dashboard() {
     useEffect(() => {
         let channel: any
 
-        const setupRealtime = async (currentSession: Session) => {
-            setSession(currentSession)
+        const init = async () => {
+            const { data } = await supabase.auth.getSession()
 
+            if (!data.session) {
+                router.replace('/')
+                return
+            }
+
+            setSession(data.session)
             await fetchBookmarks()
+            await supabase.removeAllChannels()
 
             channel = supabase
                 .channel('bookmarks-realtime')
@@ -43,15 +50,17 @@ export default function Dashboard() {
                     }
                 )
                 .subscribe((status) => {
+                    console.log('Realtime status:', status)
                 })
         }
 
+        init()
+
         const { data: listener } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
-                if (session) {
-                    await setupRealtime(session)
-                } else {
-                    router.push('/')
+                if (!session) {
+                    await supabase.removeAllChannels()
+                    router.replace('/')
                 }
             }
         )
@@ -98,7 +107,8 @@ export default function Dashboard() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
-        router.push('/')
+        await supabase.removeAllChannels()
+        router.replace('/')
     }
 
     const fetchBookmarks = async () => {

@@ -6,22 +6,13 @@ import { Session } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
-    const [session, setSession] = useState<Session | null>(null)
     const router = useRouter()
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => {
-            setSession(data.session)
-            if (data.session) {
-                router.push('/dashboard')
-            }
-        })
-
         const { data: listener } = supabase.auth.onAuthStateChange(
             (_event, session) => {
-                setSession(session)
                 if (session) {
-                    router.push('/dashboard')
+                    router.replace('/dashboard')
                 }
             }
         )
@@ -30,6 +21,7 @@ export default function Home() {
             listener.subscription.unsubscribe()
         }
     }, [router])
+
 
     const handleLogin = async () => {
         await supabase.auth.signInWithOAuth({
